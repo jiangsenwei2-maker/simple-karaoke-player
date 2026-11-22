@@ -80,7 +80,7 @@ public class MainActivity extends AppCompatActivity implements LibraryRepository
         scanProgress = findViewById(R.id.scan_progress);
         btnChooseFolder = findViewById(R.id.btn_choose_folder);
 
-        songAdapter = new SongAdapter(this::playSong, this::showRenameDialog);
+        songAdapter = new SongAdapter(this::playSong, this::showRenameDialog, this::showSongOptions);
         artistAdapter = new ArtistAdapter(this::openArtist);
 
         list.setLayoutManager(new LinearLayoutManager(this));
@@ -353,6 +353,24 @@ public class MainActivity extends AppCompatActivity implements LibraryRepository
                     startActivity(new Intent(this, PlayerActivity.class));
                 })
                 .setNegativeButton(R.string.cancel, null)
+                .show();
+    }
+
+    private void showSongOptions(Song song) {
+        String[] items = {getString(R.string.rename), getString(R.string.search_lyrics)};
+        new MaterialAlertDialogBuilder(this, R.style.Theme_Karaoke_Dialog)
+                .setTitle(song.displayName())
+                .setItems(items, (d, which) -> {
+                    if (which == 0) {
+                        showRenameDialog(song);
+                    } else {
+                        Intent intent = new Intent(this, LyricSearchActivity.class);
+                        intent.putExtra(LyricSearchActivity.EXTRA_ARTIST, song.artist);
+                        intent.putExtra(LyricSearchActivity.EXTRA_TITLE, song.title);
+                        intent.putExtra(LyricSearchActivity.EXTRA_DOC_ID, song.docId);
+                        startActivity(intent);
+                    }
+                })
                 .show();
     }
 

@@ -1,5 +1,6 @@
 package com.local.karaoke.ui;
 
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -121,6 +122,7 @@ public class PlayerActivity extends AppCompatActivity {
         playButton.setOnClickListener(v -> togglePlay());
         findViewById(R.id.btn_prev).setOnClickListener(v -> move(-1));
         findViewById(R.id.btn_next).setOnClickListener(v -> move(1));
+        lyricState.setOnClickListener(v -> openLyricSearch());
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -321,6 +323,19 @@ public class PlayerActivity extends AppCompatActivity {
         if (queue.isEmpty()) return;
         index = (index + delta + queue.size()) % queue.size();
         playCurrent();
+    }
+
+    private void openLyricSearch() {
+        Song song = current;
+        if (song == null) {
+            Toast.makeText(this, R.string.lyric_apply_failed, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(this, LyricSearchActivity.class);
+        intent.putExtra(LyricSearchActivity.EXTRA_ARTIST, song.artist);
+        intent.putExtra(LyricSearchActivity.EXTRA_TITLE, song.title);
+        intent.putExtra(LyricSearchActivity.EXTRA_DOC_ID, song.docId);
+        startActivity(intent);
     }
 
     private final Runnable tick = new Runnable() {

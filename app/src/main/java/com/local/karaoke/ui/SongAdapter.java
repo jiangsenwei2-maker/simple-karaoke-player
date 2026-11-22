@@ -25,10 +25,13 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
     private final List<Song> data = new ArrayList<>();
     private final OnSongAction clickAction;
     private final OnSongAction renameAction;
+    private final OnSongAction longPressAction;
 
-    public SongAdapter(OnSongAction clickAction, OnSongAction renameAction) {
+    public SongAdapter(OnSongAction clickAction, OnSongAction renameAction,
+                       OnSongAction longPressAction) {
         this.clickAction = clickAction;
         this.renameAction = renameAction;
+        this.longPressAction = longPressAction;
     }
 
     public void setSongs(List<Song> songs) {
@@ -70,7 +73,7 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.Holder> {
         });
         holder.itemView.setOnLongClickListener(v -> {
             int pos = holder.getAdapterPosition();
-            if (pos != RecyclerView.NO_POSITION) renameAction.onAction(data.get(pos));
+            if (pos != RecyclerView.NO_POSITION) longPressAction.onAction(data.get(pos));
             return true;
         });
         holder.rename.setOnClickListener(v -> {

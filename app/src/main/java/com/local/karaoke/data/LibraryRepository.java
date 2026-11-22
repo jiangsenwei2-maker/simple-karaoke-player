@@ -67,6 +67,14 @@ public final class LibraryRepository {
         void onResult(boolean success, String message);
     }
 
+    public interface SearchCallback {
+        void onResult(List<LyricCandidate> candidates);
+    }
+
+    public interface LyricLoadCallback {
+        void onLoaded(String lrc);
+    }
+
     private static volatile LibraryRepository instance;
 
     public static LibraryRepository get(Context context) {
@@ -430,6 +438,10 @@ public final class LibraryRepository {
 
     private void startLyricBackfill(int generation) {
         List<Song> snapshot = songs;
+        int missing = 0;
+        for (Song song : snapshot) if (!song.hasLrc) missing++;
+        Log.d(TAG, "backfill gen=" + generation + " total=" + snapshot.size()
+                + " missing=" + missing);
         for (Song song : snapshot) {
             if (song.hasLrc) continue;
             if (!lyricAttempted.add(song.docId)) continue;
@@ -450,21 +462,31 @@ public final class LibraryRepository {
 
     private void fetchAndSave(Song song, boolean overwrite) {
         if (!overwrite && song.hasLrc) return;
+        Log.d(TAG, "fetch lyric: " + song.displayName() + " overwrite=" + overwrite);
         String lrc = fetchLyric(song);
-        if (lrc == null || !LrcParser.looksLikeLrc(lrc)) return;
+        if (lrc == null || !LrcParser.looksLikeLrc(lrc)) {
+            Log.w(TAG, "no lyric matched for " + song.displayName());
+            return;
+        }
 
         if (overwrite && song.lrcUri != null && writeUri(song.lrcUri, lrc)) {
             song.hasLrc = true;
+            Log.d(TAG, "lyric overwritten: " + song.displayName());
             final Song updated = song;
             main.post(() -> notifyLyrics(updated));
             return;
         }
 
         Saved saved = saveLrc(song, lrc);
-        if (saved == null) return;
+        if (saved == null) {
+            Log.w(TAG, "save lrc failed: " + song.displayName());
+            return;
+        }
         song.hasLrc = true;
         song.lrcUri = saved.uri;
         song.cachedLrcPath = saved.path;
+        Log.d(TAG, "lyric saved: " + song.displayName()
+                + (saved.uri != null ? " (beside)" : " (cache)"));
         final Song updated = song;
         main.post(() -> notifyLyrics(updated));
     }
@@ -535,14 +557,171 @@ public final class LibraryRepository {
         }
     }
 
+    // ------------------------------------------------------------------ 歌词候选（手动搜索 + 自动择优）
+
+    private static String normForMatch(String s) {
+        if (s == null) return "";
+        return s.toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", "")
+                .replaceAll("[\\p{Punct}（）【】《》「」『』、，。！？·…—]", "");
+    }
+
+    /** 从候选中自动择优：歌手+歌名都匹配最优；其次歌名匹配且时长接近；否则不盲目选。 */
+    private LyricCandidate pickBest(List<LyricCandidate> cands, Song song) {
+        LyricCandidate bestBoth = null;
+        double bestBothDiff = Double.MAX_VALUE;
+        LyricCandidate bestTitle = null;
+        double bestTitleDiff = Double.MAX_VALUE;
+        String tNorm = normForMatch(song.title);
+        String aNorm = normForMatch(song.artist);
+        for (LyricCandidate c : cands) {
+            boolean titleOk = !tNorm.isEmpty() && normForMatch(c.title).contains(tNorm);
+            boolean artistOk = !aNorm.isEmpty() && normForMatch(c.artist).contains(aNorm);
+            double diff = (song.durationMs > 0 && c.durationMs > 0)
+                    ? Math.abs(c.durationMs - song.durationMs) : 0;
+            if (titleOk && artistOk && diff < bestBothDiff) {
+                bestBothDiff = diff;
+                bestBoth = c;
+            }
+            if (titleOk && diff < bestTitleDiff) {
+                bestTitleDiff = diff;
+                bestTitle = c;
+            }
+        }
+        if (bestBoth != null) return bestBoth;
+        // 歌名匹配但歌手不同（翻唱等）：时长差异 < 25% 才采纳，避免错歌
+        if (bestTitle != null && song.durationMs > 0) {
+            if (bestTitleDiff / (double) song.durationMs < 0.25) return bestTitle;
+        }
+        return null;
+    }
+
+    private void collectNeteaseCandidates(String artist, String title, List<LyricCandidate> out) {
+        try {
+            String body = httpGet("https://music.163.com/api/search/get?s="
+                    + encode(artist + " " + title) + "&type=1&limit=10", "https://music.163.com/");
+            if (body == null) return;
+            JSONObject root = new JSONObject(body);
+            JSONObject result = root.optJSONObject("result");
+            JSONArray songs = result == null ? null : result.optJSONArray("songs");
+            if (songs == null) return;
+            for (int i = 0; i < songs.length(); i++) {
+                JSONObject s = songs.optJSONObject(i);
+                if (s == null) continue;
+                LyricCandidate c = new LyricCandidate();
+                c.title = s.optString("name", "");
+                StringBuilder arts = new StringBuilder();
+                JSONArray ar = s.optJSONArray("artists");
+                if (ar != null) {
+                    for (int j = 0; j < ar.length(); j++) {
+                        JSONObject a = ar.optJSONObject(j);
+                        if (a != null) {
+                            if (arts.length() > 0) arts.append('/');
+                            arts.append(a.optString("name", ""));
+                        }
+                    }
+                }
+                c.artist = arts.toString();
+                c.durationMs = s.optLong("duration", 0);
+                c.source = "NetEase";
+                c.neteaseId = s.optLong("id", -1);
+                out.add(c);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "netease candidates failed", t);
+        }
+    }
+
+    private String fetchNeteaseLyricById(long id) {
+        try {
+            String body = httpGet("https://music.163.com/api/song/lyric?id=" + id
+                    + "&lv=1&kv=1&tv=-1", "https://music.163.com/");
+            if (body == null) return null;
+            JSONObject lobj = new JSONObject(body);
+            JSONObject lrc = lobj.optJSONObject("lrc");
+            String lyric = lrc == null ? "" : lrc.optString("lyric", "");
+            return LrcParser.looksLikeLrc(lyric) ? lyric : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private void collectLrclibCandidates(String artist, String title, List<LyricCandidate> out) {
+        try {
+            String body = httpGet("https://lrclib.net/api/search?artist_name=" + encode(artist)
+                    + "&track_name=" + encode(title));
+            if (body == null) return;
+            JSONArray array = new JSONArray(body);
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject item = array.optJSONObject(i);
+                if (item == null) continue;
+                String lyrics = stringField(item, "syncedLyrics");
+                if (!LrcParser.looksLikeLrc(lyrics)) continue;
+                LyricCandidate c = new LyricCandidate();
+                c.artist = item.optString("artistName", "");
+                c.title = item.optString("trackName", "");
+                c.durationMs = Math.round(item.optDouble("duration", 0) * 1000);
+                c.source = "LRCLIB";
+                c.lrc = lyrics;
+                out.add(c);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "lrclib candidates failed", t);
+        }
+    }
+
+    private void collectLrcCxCandidates(String artist, String title, List<LyricCandidate> out) {
+        try {
+            String body = httpGet("https://api.lrc.cx/lyrics?artist=" + encode(artist)
+                    + "&title=" + encode(title));
+            if (body == null) return;
+            String trimmed = body.trim();
+            String lrc = null;
+            if (trimmed.startsWith("{") || (trimmed.startsWith("[") && trimmed.contains("\":"))) {
+                lrc = extractLyricsFromJson(trimmed);
+            }
+            if (lrc == null && LrcParser.looksLikeLrc(trimmed)) lrc = trimmed;
+            if (lrc == null) lrc = extractLyricsFromJson(trimmed);
+            if (!LrcParser.looksLikeLrc(lrc)) return;
+            LyricCandidate c = new LyricCandidate();
+            c.artist = artist;
+            c.title = title;
+            c.source = "lrc.cx";
+            c.lrc = lrc;
+            out.add(c);
+        } catch (Throwable t) {
+            Log.w(TAG, "lrc.cx candidates failed", t);
+        }
+    }
+
+    private String neteaseCloud(Song song) {
+        List<LyricCandidate> cands = new ArrayList<>();
+        collectNeteaseCandidates(song.artist, song.title, cands);
+        LyricCandidate best = pickBest(cands, song);
+        if (best == null || best.neteaseId <= 0) return null;
+        return fetchNeteaseLyricById(best.neteaseId);
+    }
+
+    private static String lyricDesc(String lrc) {
+        if (lrc == null) return "null";
+        return (LrcParser.looksLikeLrc(lrc) ? "ok" : "not-lrc") + " len=" + lrc.length();
+    }
+
     private String fetchLyric(Song song) {
         String lrc = lrclibGet(song);
+        Log.d(TAG, "lrclibGet " + song.displayName() + " -> " + lyricDesc(lrc));
         if (LrcParser.looksLikeLrc(lrc)) return lrc;
 
         lrc = lrclibSearch(song);
+        Log.d(TAG, "lrclibSearch -> " + lyricDesc(lrc));
+        if (LrcParser.looksLikeLrc(lrc)) return lrc;
+
+        lrc = neteaseCloud(song);
+        Log.d(TAG, "netease -> " + lyricDesc(lrc));
         if (LrcParser.looksLikeLrc(lrc)) return lrc;
 
         lrc = lrcCx(song);
+        Log.d(TAG, "lrcCx -> " + lyricDesc(lrc));
         if (LrcParser.looksLikeLrc(lrc)) return lrc;
         return null;
     }
@@ -660,6 +839,10 @@ public final class LibraryRepository {
     }
 
     private String httpGet(String urlString) {
+        return httpGet(urlString, null);
+    }
+
+    private String httpGet(String urlString, String referer) {
         HttpURLConnection connection = null;
         try {
             URL url = new URL(urlString);
@@ -670,7 +853,9 @@ public final class LibraryRepository {
             connection.setInstanceFollowRedirects(true);
             connection.setRequestProperty("User-Agent", "SimpleKaraoke/1.0 (Android; local)");
             connection.setRequestProperty("Accept", "application/json, text/plain, */*");
+            if (referer != null) connection.setRequestProperty("Referer", referer);
             int code = connection.getResponseCode();
+            Log.d(TAG, "http " + code + " " + urlString);
             if (code < 200 || code >= 300) return null;
             try (InputStream in = connection.getInputStream()) {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -682,10 +867,94 @@ public final class LibraryRepository {
                 return LyricStore.decode(out.toByteArray());
             }
         } catch (Throwable t) {
+            Log.w(TAG, "http error " + urlString + ": " + t);
             return null;
         } finally {
             if (connection != null) connection.disconnect();
         }
+    }
+
+    // ------------------------------------------------------------------ 手动搜索 / 切换歌词
+
+    /** 手动搜索候选歌词（异步，回调在主线程）。 */
+    public void searchLyrics(final String artist, final String title,
+                             final SearchCallback callback) {
+        lyricExec.execute(() -> {
+            final List<LyricCandidate> list = new ArrayList<>();
+            try { collectLrclibCandidates(artist, title, list); } catch (Throwable ignored) {}
+            try { collectNeteaseCandidates(artist, title, list); } catch (Throwable ignored) {}
+            try { collectLrcCxCandidates(artist, title, list); } catch (Throwable ignored) {}
+            // 去重（同歌手同歌名同来源）
+            List<LyricCandidate> dedup = new ArrayList<>();
+            for (LyricCandidate c : list) {
+                boolean dup = false;
+                for (LyricCandidate d : dedup) {
+                    if (d.source.equals(c.source) && d.display().equals(c.display())
+                            && Math.abs(d.durationMs - c.durationMs) < 2000) {
+                        dup = true;
+                        break;
+                    }
+                }
+                if (!dup) dedup.add(c);
+            }
+            main.post(() -> callback.onResult(dedup));
+        });
+    }
+
+    /** 取候选的完整歌词内容（用于预览 / 应用），异步回调在主线程。 */
+    public void loadCandidateLyric(final LyricCandidate c, final LyricLoadCallback callback) {
+        lyricExec.execute(() -> {
+            String lrc = c.lrc;
+            if (!LrcParser.looksLikeLrc(lrc) && c.neteaseId > 0) {
+                lrc = fetchNeteaseLyricById(c.neteaseId);
+            }
+            if (!LrcParser.looksLikeLrc(lrc)) lrc = null;
+            final String result = lrc;
+            main.post(() -> callback.onLoaded(result));
+        });
+    }
+
+    /** 把选中的候选歌词应用到歌曲（覆盖保存），异步回调在主线程。 */
+    public void applyLyric(final Song song, final LyricCandidate candidate,
+                           final RenameCallback callback) {
+        lyricExec.execute(() -> {
+            try {
+                String lrc = candidate.lrc;
+                if (!LrcParser.looksLikeLrc(lrc) && candidate.neteaseId > 0) {
+                    lrc = fetchNeteaseLyricById(candidate.neteaseId);
+                }
+                if (lrc == null || !LrcParser.looksLikeLrc(lrc)) {
+                    main.post(() -> callback.onResult(false, "该候选没有可用歌词"));
+                    return;
+                }
+                if (candidate.lrc == null) candidate.lrc = lrc;
+                boolean saved;
+                if (song.lrcUri != null && writeUri(song.lrcUri, lrc)) {
+                    saved = true;
+                } else {
+                    Saved s = saveLrc(song, lrc);
+                    saved = s != null;
+                    if (saved) {
+                        song.lrcUri = s.uri;
+                        song.cachedLrcPath = s.path;
+                    }
+                }
+                if (!saved) {
+                    main.post(() -> callback.onResult(false, "保存歌词失败"));
+                    return;
+                }
+                song.hasLrc = true;
+                lyricAttempted.add(song.docId);
+                final Song u = song;
+                main.post(() -> {
+                    notifyLyrics(u);
+                    notifySongsChanged();
+                    callback.onResult(true, null);
+                });
+            } catch (Throwable t) {
+                main.post(() -> callback.onResult(false, "出错：" + t.getMessage()));
+            }
+        });
     }
 
     // ------------------------------------------------------------------ 通知
