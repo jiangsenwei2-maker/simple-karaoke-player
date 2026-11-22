@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true">
+
+    <ImageView
+        android:id="@+id/bg_image_a"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:contentDescription="@string/app_name"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageView
+        android:id="@+id/bg_image_b"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:alpha="0"
+        android:contentDescription="@string/app_name"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <View
+        android:id="@+id/scrim"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_scrim"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <ImageButton
+        android:id="@+id/btn_back"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginTop="14dp"
+        android:background="@drawable/bg_ctrl_ripple"
+        android:contentDescription="@string/cancel"
+        android:padding="11dp"
+        android:src="@drawable/ic_back"
+        app:tint="@color/text_primary"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/song_title"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:ellipsize="middle"
+        android:gravity="center"
+        android:maxLines="1"
+        android:shadowColor="#99000000"
+        android:shadowDx="0"
+        android:shadowDy="2"
+        android:shadowRadius="8"
+        android:textColor="@color/text_primary"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@id/btn_back"
+        app:layout_constraintEnd_toStartOf="@id/lyric_state"
+        app:layout_constraintStart_toEndOf="@id/btn_back"
+        app:layout_constraintTop_toTopOf="@id/btn_back" />
+
+    <TextView
+        android:id="@+id/lyric_state"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="20dp"
+        android:alpha="0.9"
+        android:text="@string/lyrics_ready"
+        android:textColor="@color/accent2"
+        android:textSize="11sp"
+        app:layout_constraintBottom_toBottomOf="@id/btn_back"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="@id/btn_back" />
+
+    <TextView
+        android:id="@+id/lyric_text"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="28dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="28dp"
+        android:layout_marginBottom="12dp"
+        android:gravity="center"
+        android:lineSpacingExtra="8dp"
+        android:maxLines="2"
+        android:shadowColor="#CC000000"
+        android:shadowDx="0"
+        android:shadowDy="3"
+        android:shadowRadius="14"
+        android:text="@string/no_lyrics"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        app:autoSizeMaxTextSize="54sp"
+        app:autoSizeMinTextSize="20sp"
+        app:autoSizeStepGranularity="2sp"
+        app:autoSizeTextType="uniform"
+        app:layout_constraintBottom_toTopOf="@id/panel"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btn_back" />
+
+    <LinearLayout
+        android:id="@+id/panel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="18dp"
+        android:background="@drawable/bg_player_panel"
+        android:orientation="vertical"
+        android:paddingStart="18dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintWidth_max="760dp"
+        app:layout_constraintWidth_percent="0.92">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/time_current"
+                android:layout_width="46dp"
+                android:layout_height="wrap_content"
+                android:text="00:00"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+
+            <SeekBar
+                android:id="@+id/seek_bar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:max="1000"
+                android:progress="0"
+                android:progressBackgroundTint="#3DFFFFFF"
+                android:progressTint="@color/accent"
+                android:splitTrack="false"
+                android:thumbTint="@color/accent" />
+
+            <TextView
+                android:id="@+id/time_total"
+                android:layout_width="46dp"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:text="00:00"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageButton
+                android:id="@+id/btn_prev"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="@drawable/bg_ctrl_ripple"
+                android:contentDescription="@string/app_name"
+                android:padding="15dp"
+                android:src="@drawable/ic_prev"
+                app:tint="@color/text_primary" />
+
+            <ImageButton
+                android:id="@+id/btn_play"
+                android:layout_width="68dp"
+                android:layout_height="68dp"
+                android:layout_marginStart="30dp"
+                android:layout_marginEnd="30dp"
+                android:background="@drawable/bg_play_button"
+                android:contentDescription="@string/app_name"
+                android:padding="20dp"
+                android:src="@drawable/ic_play"
+                app:tint="#FFFFFF" />
+
+            <ImageButton
+                android:id="@+id/btn_next"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:background="@drawable/bg_ctrl_ripple"
+                android:contentDescription="@string/app_name"
+                android:padding="15dp"
+                android:src="@drawable/ic_next"
+                app:tint="@color/text_primary" />
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

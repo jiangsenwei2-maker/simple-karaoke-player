@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">简易K歌</string>
+    <string name="library_title">K歌点歌台</string>
+    <string name="search_hint">搜索歌名 / 歌手 / 拼音首字母</string>
+    <string name="tab_all">全部歌曲</string>
+    <string name="tab_artist">歌手分类</string>
+    <string name="settings">设置</string>
+    <string name="refresh">刷新曲库</string>
+    <string name="rename">重命名</string>
+    <string name="choose_folder">选择曲库文件夹</string>
+    <string name="no_folder_title">还没有设置曲库目录</string>
+    <string name="no_folder_desc">请选择存放伴奏的文件夹，APP 只扫描该目录。\n命名格式：歌手-歌曲名.mp3</string>
+    <string name="empty_songs_title">这个目录里还没有歌曲</string>
+    <string name="empty_songs_desc">请放入命名为「歌手-歌曲名.mp3」的伴奏文件，\n歌词文件「歌手-歌曲名.lrc」放在同一目录。</string>
+    <string name="retry_scan">重新扫描</string>
+    <string name="settings_title">设置</string>
+    <string name="current_dir">当前曲库目录</string>
+    <string name="not_set">未设置</string>
+    <string name="change_dir">更换扫描目录</string>
+    <string name="usage_title">使用说明</string>
+    <string name="usage_text">1. 伴奏命名：歌手-歌曲名.mp3\n2. 歌词命名：歌手-歌曲名.lrc，与伴奏同目录\n3. 背景图：目录内的 jpg / png 自动轮播（5 秒一张）\n4. 缺少歌词时 APP 会自动联网匹配并保存到歌曲同目录\n5. 点击歌曲播放，长按歌曲可重命名</string>
+    <string name="about_title">关于</string>
+    <string name="about_text">简易 K 歌播放器 V1.0\n纯本地伴奏 + 自动联网匹配 LRC 歌词\n适配安卓平板 / 点歌机 / 手机，横竖屏自动旋转</string>
+    <string name="lyrics_ready">歌词已就绪</string>
+    <string name="lyrics_pending">歌词待匹配</string>
+    <string name="no_lyrics">♪ 暂无歌词</string>
+    <string name="dialog_rename_title">重命名歌曲</string>
+    <string name="hint_artist">歌手</string>
+    <string name="hint_song">歌曲名</string>
+    <string name="rename_tip">保存后会重命名原文件，并重新联网匹配歌词。</string>
+    <string name="cancel">取消</string>
+    <string name="save">保存</string>
+    <string name="artist_error_dash">歌手名不能包含「-」</string>
+    <string name="artist_error_empty">歌手名不能为空</string>
+    <string name="artist_error_illegal">歌手名不能包含 / \\ : * ? \" &lt; &gt; |</string>
+    <string name="song_error_empty">歌曲名不能为空</string>
+    <string name="song_error_illegal">歌曲名不能包含 / \\ : * ? \" &lt; &gt; |</string>
+    <string name="renaming">正在重命名…</string>
+    <string name="rename_success">重命名成功</string>
+    <string name="rename_failed">重命名失败，请检查文件权限</string>
+    <string name="scan_need_dir">请先选择曲库文件夹</string>
+    <string name="scanning">正在扫描曲库…</string>
+    <string name="search_empty_title">没有找到匹配的歌曲</string>
+    <string name="search_empty_desc">换个歌名、歌手或拼音首字母试试</string>
+    <string name="folder_changed">已切换曲库目录，正在重新扫描</string>
+</resources>
